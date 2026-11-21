@@ -96,101 +96,104 @@
   function renderMarkdown(source) {
     if (!source.trim()) return '<div class="empty-state"><div><strong>開始寫點什麼吧</strong>左側輸入的 Markdown 會在這裡顯示。</div></div>';
     const lines = source.replace(/\r\n?/g, '\n').split('\n');
-    let html = '', paragraph = [], list = null, quote = [], table = [];
+    let html = '', paragraph = [], quote = [], table = [];
 
     function flushParagraph() {
-      if (paragraph.length) {
-        html += '<p>' + inline(paragraph.join('\n')) + '</p>';
-        paragraph = [];
-      }
-    }
-    function flushList() {
-      if (list) {
-        html += '</' + list + '>';
-        list = null;
-      }
+      if (paragraph.length) { html += '<p>' + inline(paragraph.join('\n')) + '</p>'; paragraph = []; }
     }
     function flushQuote() {
-      if (quote.length) {
-        html += '<blockquote>' + renderMarkdown(quote.join('\n')) + '</blockquote>';
-        quote = [];
-      }
+      if (quote.length) { html += '<blockquote>' + renderMarkdown(quote.join('\n')) + '</blockquote>'; quote = []; }
     }
     function flushTable() {
       if (!table.length) return;
       const rows = table.map((row) => row.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim()));
       html += '<table><thead><tr>' + rows[0].map((cell) => '<th>' + inline(cell) + '</th>').join('') + '</tr></thead><tbody>';
-      rows.slice(2).forEach((row) => {
-        html += '<tr>' + row.map((cell) => '<td>' + inline(cell) + '</td>').join('') + '</tr>';
-      });
-      html += '</tbody></table>';
-      table = [];
+      rows.slice(2).forEach((row) => { html += '<tr>' + row.map((cell) => '<td>' + inline(cell) + '</td>').join('') + '</tr>'; });
+      html += '</tbody></table>'; table = [];
+    }
+    function readListItem(line) {
+      const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.+)$/);
+      if (!match) return null;
+      const task = match[3].match(/^\[([ xX])\]\s+(.+)$/);
+      return {
+        indent: match[1].replace(/\t/g, '  ').length,
+        type: /^\d/.test(match[2]) ? 'ol' : 'ul',
+        checked: task ? task[1].toLowerCase() === 'x' : null,
+        text: task ? task[2] : match[3]
+      };
+    }
+    function renderListBlock(start) {
+      let output = '';
+      const stack = [];
+      let index = start;
+      while (index < lines.length) {
+        const item = readListItem(lines[index]);
+        if (!item) break;
+        if (!stack.length) {
+          output += '<' + item.type + '><li' + (item.checked !== null ? ' class="task-item"' : '') + '>';
+          stack.push({indent:item.indent, type:item.type});
+        } else {
+          while (stack.length && item.indent < stack[stack.length - 1].indent) {
+            const level = stack.pop();
+            output += '</li></' + level.type + '>';
+          }
+          if (!stack.length || item.indent > stack[stack.length - 1].indent) {
+            output += '<' + item.type + '><li' + (item.checked !== null ? ' class="task-item"' : '') + '>';
+            stack.push({indent:item.indent, type:item.type});
+          } else {
+            output += '</li>';
+            if (item.type !== stack[stack.length - 1].type) {
+              output += '</' + stack[stack.length - 1].type + '><' + item.type + '>';
+              stack[stack.length - 1].type = item.type;
+            }
+            output += '<li' + (item.checked !== null ? ' class="task-item"' : '') + '>';
+          }
+        }
+        if (item.checked !== null) output += '<input type="checkbox" disabled ' + (item.checked ? 'checked' : '') + '>';
+        output += inline(item.text);
+        index += 1;
+      }
+      while (stack.length) {
+        const level = stack.pop();
+        output += '</li></' + level.type + '>';
+      }
+      return {html:output, next:index};
     }
 
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
       if (/^```/.test(line)) {
-        flushParagraph(); flushList(); flushQuote(); flushTable();
+        flushParagraph(); flushQuote(); flushTable();
         const block = [];
         i += 1;
-        while (i < lines.length && !/^```/.test(lines[i])) {
-          block.push(lines[i]);
-          i += 1;
-        }
+        while (i < lines.length && !/^```/.test(lines[i])) { block.push(lines[i]); i += 1; }
         html += '<pre><code>' + escapeHtml(block.join('\n')) + '</code></pre>';
         continue;
       }
       const tableNext = i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1]) && lines[i + 1].includes('|');
-      if ((table.length || tableNext) && line.includes('|')) {
-        flushParagraph(); flushList(); flushQuote();
-        table.push(line);
-        continue;
-      }
+      if ((table.length || tableNext) && line.includes('|')) { flushParagraph(); flushQuote(); table.push(line); continue; }
       flushTable();
-      if (/^\s*>/.test(line)) {
-        flushParagraph(); flushList();
-        quote.push(line.replace(/^\s*>\s?/, ''));
-        continue;
-      }
+      if (/^\s*>/.test(line)) { flushParagraph(); quote.push(line.replace(/^\s*>\s?/, '')); continue; }
       flushQuote();
-      if (!line.trim()) {
-        flushParagraph(); flushList();
-        continue;
-      }
+      if (!line.trim()) { flushParagraph(); continue; }
       const heading = line.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
-        flushParagraph(); flushList();
+        flushParagraph();
         const level = heading[1].length;
         html += '<h' + level + '>' + inline(heading[2]) + '</h' + level + '>';
         continue;
       }
-      if (/^\s*((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/.test(line)) {
-        flushParagraph(); flushList();
-        html += '<hr>';
-        continue;
-      }
-      const task = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.+)$/);
-      const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
-      const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
-      if (task || unordered || ordered) {
+      if (/^\s*((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/.test(line)) { flushParagraph(); html += '<hr>'; continue; }
+      if (readListItem(line)) {
         flushParagraph();
-        const type = ordered ? 'ol' : 'ul';
-        if (list && list !== type) flushList();
-        if (!list) {
-          list = type;
-          html += '<' + type + '>';
-        }
-        if (task) {
-          html += '<li class="task-item"><input type="checkbox" disabled ' + (task[1].toLowerCase() === 'x' ? 'checked' : '') + '>' + inline(task[2]) + '</li>';
-        } else {
-          html += '<li>' + inline((ordered || unordered)[1]) + '</li>';
-        }
+        const rendered = renderListBlock(i);
+        html += rendered.html;
+        i = rendered.next - 1;
         continue;
       }
-      flushList();
       paragraph.push(line);
     }
-    flushParagraph(); flushList(); flushQuote(); flushTable();
+    flushParagraph(); flushQuote(); flushTable();
     return html;
   }
 
@@ -237,6 +240,23 @@
   }
 
   function insertFormat(type) {
+    if (['ul', 'ol', 'task'].includes(type)) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const lineStart = editor.value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+      const nextBreak = editor.value.indexOf('\n', end);
+      const lineEnd = nextBreak === -1 ? editor.value.length : nextBreak;
+      const prefix = type === 'ol' ? '1. ' : (type === 'task' ? '- [ ] ' : '- ');
+      const converted = editor.value.slice(lineStart, lineEnd).split('\n').map((line) => {
+        if (!line.trim()) return line;
+        const match = line.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*)$/);
+        return (match ? match[1] : (line.match(/^\s*/) || [''])[0]) + prefix + (match ? match[2] : line.trimStart());
+      }).join('\n');
+      editor.setRangeText(converted, lineStart, lineEnd, 'select');
+      editor.focus(); updatePreview(); markDirty(true);
+      return;
+    }
+
     const formats = {
       heading:['## ','','標題',true,false], bold:['**','**','粗體文字'], italic:['*','*','斜體文字'],
       strike:['~~','~~','刪除線文字'], quote:['> ','','引用文字',true,false], code:['`','`','程式碼'],
@@ -352,12 +372,22 @@
   editor.addEventListener('click', updateCursor);
   editor.addEventListener('keyup', updateCursor);
   editor.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') {
-      event.preventDefault();
-      editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end');
-      updatePreview();
-      markDirty(true);
+    if (event.key !== 'Tab') return;
+    event.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const lineStart = editor.value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const nextBreak = editor.value.indexOf('\n', end);
+    const lineEnd = nextBreak === -1 ? editor.value.length : nextBreak;
+    const block = editor.value.slice(lineStart, lineEnd);
+    const isListLine = /^\s*(?:[-*+]|\d+[.)])\s+/.test(block);
+    if (isListLine || block.includes('\n') || event.shiftKey) {
+      const changed = block.split('\n').map((line) => event.shiftKey ? line.replace(/^( {1,2}|\t)/, '') : (line.trim() ? '  ' + line : line)).join('\n');
+      editor.setRangeText(changed, lineStart, lineEnd, 'select');
+    } else {
+      editor.setRangeText('  ', start, end, 'end');
     }
+    updatePreview(); markDirty(true);
   });
   document.addEventListener('keydown', (event) => {
     const mod = event.ctrlKey || event.metaKey;
