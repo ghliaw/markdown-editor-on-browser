@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3ee">
+  <title>墨流 — Markdown 編輯器</title>
+  <meta name="description" content="直接在瀏覽器使用的 Markdown 編輯器，支援編輯、預覽與左右分割模式。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="墨流 Markdown 編輯器">
+        <span class="brand-mark" aria-hidden="true">墨</span>
+        <span class="brand-name">墨流</span>
+        <span class="brand-subtitle">Markdown 編輯器</span>
+      </div>
+      <div class="file-actions" aria-label="檔案操作">
+        <button class="text-button" id="new-file" type="button" title="新增檔案 (Ctrl+N)"><span data-icon="file-plus"></span><span>新檔</span></button>
+        <button class="text-button" id="open-file" type="button" title="開啟檔案 (Ctrl+O)"><span data-icon="folder-open"></span><span>開啟</span></button>
+        <button class="text-button" id="save-file" type="button" title="另存檔案 (Ctrl+Shift+S)"><span data-icon="download"></span><span>另存</span></button>
+      </div>
+    </header>
+    <section class="document-bar" aria-label="文件資訊與顯示模式">
+      <div class="document-info"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span class="filename" id="filename">未命名.md</span><span class="save-state" id="save-state">已儲存</span></div>
+      <div class="mode-switcher" role="group" aria-label="顯示模式">
+        <button class="mode-button" data-mode="edit" type="button" aria-label="編輯模式" title="編輯模式"><span data-icon="edit"></span><span>編輯</span></button>
+        <button class="mode-button active" data-mode="split" type="button" aria-label="左右窗格模式" title="左右窗格模式"><span data-icon="columns"></span><span>左右</span></button>
+        <button class="mode-button" data-mode="preview" type="button" aria-label="顯示模式" title="顯示模式"><span data-icon="eye"></span><span>顯示</span></button>
+      </div>
+    </section>
+    <main class="workspace split-mode" id="workspace">
+      <section class="editor-pane" id="editor-pane" aria-label="Markdown 編輯區">
+        <div class="format-toolbar" role="toolbar" aria-label="Markdown 格式工具">
+          <div class="toolbar-group">
+            <button class="icon-button" data-format="heading" type="button" title="標題"><span data-icon="heading"></span></button>
+            <button class="icon-button" data-format="bold" type="button" title="粗體 (Ctrl+B)"><span data-icon="bold"></span></button>
+            <button class="icon-button" data-format="italic" type="button" title="斜體 (Ctrl+I)"><span data-icon="italic"></span></button>
+            <button class="icon-button" data-format="strike" type="button" title="刪除線"><span data-icon="strikethrough"></span></button>
+          </div>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <div class="toolbar-group">
+            <button class="icon-button" data-format="quote" type="button" title="引用"><span data-icon="quote"></span></button>
+            <button class="icon-button" data-format="code" type="button" title="行內程式碼"><span data-icon="code"></span></button>
+            <button class="icon-button" data-format="codeblock" type="button" title="程式碼區塊"><span data-icon="code-square"></span></button>
+          </div>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <div class="toolbar-group">
+            <button class="icon-button" data-format="ul" type="button" title="項目清單"><span data-icon="list"></span></button>
+            <button class="icon-button" data-format="ol" type="button" title="編號清單"><span data-icon="list-ordered"></span></button>
+            <button class="icon-button" data-format="task" type="button" title="待辦清單"><span data-icon="check-square"></span></button>
+          </div>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <div class="toolbar-group">
+            <button class="icon-button" data-format="link" type="button" title="連結 (Ctrl+K)"><span data-icon="link"></span></button>
+            <button class="icon-button" data-format="image" type="button" title="圖片"><span data-icon="image"></span></button>
+            <button class="icon-button" data-format="table" type="button" title="表格"><span data-icon="table"></span></button>
+            <button class="icon-button" data-format="hr" type="button" title="分隔線"><span data-icon="minus"></span></button>
+          </div>
+        </div>
+        <label class="sr-only" for="editor">Markdown 內容</label>
+        <textarea id="editor" aria-label="Markdown 內容" spellcheck="false"></textarea>
+      </section>
+      <div class="pane-divider" aria-hidden="true"></div>
+      <section class="preview-pane" id="preview-pane" aria-label="Markdown 顯示區">
+        <div class="preview-header"><span>預覽</span><span id="reading-time">約 1 分鐘閱讀</span></div>
+        <article class="markdown-body" id="preview"></article>
+      </section>
+    </main>
+    <footer class="statusbar"><span id="cursor-position">第 1 行，第 1 欄</span><span class="status-separator">·</span><span id="word-count">0 字</span><span class="keyboard-hint">Tab 插入縮排　Ctrl+S 儲存</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
